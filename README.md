@@ -2,6 +2,12 @@
 
 <p align="center"><img src="docs/mascot.png" alt="FAUN mascot" width="360"></p>
 
+<p align="center">
+  <a href="https://ko-fi.com/t0mashajek">
+    <img src="https://img.shields.io/badge/Ko--fi-Support%20FAUN-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support FAUN on Ko-fi">
+  </a>
+</p>
+
 **F**ind · **A**cquire · **U**nify · **N**ormalize
 
 A simple, clean desktop front-end for **ffmpeg**, **yt-dlp** and **mpv**. Works on macOS and Windows.
