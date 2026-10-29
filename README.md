@@ -8,6 +8,8 @@
   </a>
 </p>
 
+   <p align="center"><img src="docs/Screenshot.png" alt="FAUN screenshot" width="720"></p>
+
 **F**ind · **A**cquire · **U**nify · **N**ormalize
 
 A simple, clean desktop front-end for **ffmpeg**, **yt-dlp** and **mpv**. Works on macOS and Windows.
