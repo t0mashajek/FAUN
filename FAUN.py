@@ -16,7 +16,7 @@
 """
 FAUN - a simple, clean front-end for ffmpeg, yt-dlp and mpv. Works on macOS and Windows.
 FAUN = Find, Acquire, Unify, Normalize.
-Created by Tomas Hajek, version 1.0.
+Created by Tomas Hajek, version 1.1.
 
 It uses FFmpeg (LGPL / GPL), yt-dlp (Unlicense) and mpv (GPL / LGPL). These programs are not part of this
 file: they are installed separately (Homebrew / Chocolatey) and only run by it. This project is not
@@ -60,7 +60,7 @@ from urllib.parse import parse_qs, urlparse
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 BORDER_COLOR = "#8a8f96"  # the lines around the cover / tags panel (visible on light and dark backgrounds)
-APP_NAME, APP_AUTHOR, APP_VERSION = "FAUN", "Tomas Hajek", "1.0"
+APP_NAME, APP_AUTHOR, APP_VERSION = "FAUN", "Tomas Hajek", "1.1"
 APP_ACRONYM = "Find \u00b7 Acquire \u00b7 Unify \u00b7 Normalize"  # F A U N: what the app is for
 # Shown on the Setup tab and in the About box. The programs are installed separately and only run by this app.
 APP_CREDITS = ("Uses FFmpeg (LGPL/GPL), yt-dlp (Unlicense), mpv (GPL/LGPL),\n"
@@ -260,6 +260,41 @@ EXTRA_BIN_DIRS = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
 
 
 # ------------------------------------------------------------------ helpers
+_WIN_PATH = {"t": 0.0, "dirs": []}
+
+
+def windows_path_dirs():
+    """Windows: the folders on the system and user PATH as they are in the registry right now. A program started
+    before a tool was installed (VS Code, a terminal) still has the old PATH; this is the fresh one."""
+    if not IS_WIN:
+        return []
+    if time.time() - _WIN_PATH["t"] > 15:
+        dirs = []
+        try:
+            import winreg
+            for root_, sub_ in ((winreg.HKEY_CURRENT_USER, "Environment"),
+                                (winreg.HKEY_LOCAL_MACHINE,
+                                 r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")):
+                try:
+                    with winreg.OpenKey(root_, sub_) as k_:
+                        val_, _typ = winreg.QueryValueEx(k_, "Path")
+                except OSError:
+                    continue
+                for d_ in str(val_).split(os.pathsep):
+                    d_ = os.path.expandvars(d_.strip().strip('"'))
+                    if d_ and d_ not in dirs:
+                        dirs.append(d_)
+        except ImportError:
+            pass
+        home_ = os.path.expanduser("~")
+        for extra_ in (os.path.join(home_, "scoop", "shims"), r"C:\Program Files\mpv", r"C:\Program Files\deno",
+                       os.path.join(home_, ".deno", "bin")):
+            if extra_ not in dirs:
+                dirs.append(extra_)
+        _WIN_PATH.update(t=time.time(), dirs=dirs)
+    return _WIN_PATH["dirs"]
+
+
 def _search_dirs():
     """Folders where the helper programs (ffmpeg, yt-dlp, mpv) are looked for, besides PATH."""
     dirs = [HERE]
@@ -271,6 +306,7 @@ def _search_dirs():
         local = os.environ.get("LOCALAPPDATA")
         if local:
             dirs.append(os.path.join(local, "Microsoft", "WinGet", "Links"))
+        dirs += windows_path_dirs()
     return dirs
 
 
@@ -375,6 +411,10 @@ def tool_env():
     env = os.environ.copy()
     if not IS_WIN:  # make sure Homebrew tools are on PATH when launched from Finder
         env["PATH"] = os.pathsep.join(EXTRA_BIN_DIRS + [env.get("PATH", "")])
+    if IS_WIN:  # also the folders installed since this program was started (mpv's yt-dlp must find deno)
+        have = [d.lower() for d in env.get("PATH", "").split(os.pathsep)]
+        extra = [d for d in windows_path_dirs() if d.lower() not in have and os.path.isdir(d)]
+        env["PATH"] = os.pathsep.join([env.get("PATH", "")] + extra)
     env["PYTHONUTF8"] = "1"            # yt-dlp: print UTF-8 even when piped (Windows)
     env["PYTHONIOENCODING"] = "utf-8"
     return env
@@ -518,6 +558,9 @@ CZ = {
     "Update": "Aktualizovat",
     "Verify all": "Ověřit vše",
     "mpv  (player: pause, timeline)": "mpv  (přehrávač: pauza, časová osa)",
+    "Firefox  (YouTube login, optional)": "Firefox  (přihlášení k YouTube, volitelné)",
+    "Firefox is optional. On Windows only Firefox can share its YouTube login with FAUN\n(Chrome, Edge and Brave lock their cookies against other programs).":
+        "Firefox je volitelný. Ve Windows umí své přihlášení k YouTube sdílet jen Firefox\n(Chrome, Edge a Brave zamykají své cookies před jinými programy).",
     "deno  (YouTube for yt-dlp)": "deno  (YouTube pro yt-dlp)",
     "Install / Update open an administrator window (Windows will ask for approval).\nPress Verify afterwards to refresh the status.":
         "Instalace a aktualizace otevřou okno správce (Windows požádá o souhlas).\nPo dokončení stiskněte Ověřit a obnovte stav.",
@@ -938,8 +981,10 @@ CZ.update({
     "◀ Up": "◀ Nahoru", "Refresh": "Obnovit", "Go to:": "Přejít na:", "Only video and audio": "Jen video a audio",
     "Size": "Velikost", "Modified": "Změněno", "Use in:": "Použít v:", "Use in: ": "Použít v: ",
     "Rename…": "Přejmenovat…",
-    "Search:": "Hledat:", "Created by Tomas Hajek": "Vytvořil Tomas Hajek", "Version 1.0": "Verze 1.0", "Bars": "Sloupce", "Needle": "Ručička",
+    "Search:": "Hledat:", "Created by Tomas Hajek": "Vytvořil Tomas Hajek", "Version 1.1": "Verze 1.1", "Bars": "Sloupce", "Needle": "Ručička",
     "Album (tag)": "Album (značka)",
+    "Windows: only Firefox can share its login (Chrome, Edge and Brave lock their cookies against other programs).":
+        "Windows: přihlášení umí sdílet jen Firefox (Chrome, Edge a Brave zamykají své cookies před jinými programy).",
     "Empty: the name of the folder · Artist and title: from the name (Artist - Title) or the text above":
         "Prázdné: název složky · Interpret a název: z názvu souboru (Interpret - Název) nebo z textu výše",
     "Select a file to see its cover and tags": "Vyberte soubor, uvidíte jeho obal a značky",
@@ -1002,6 +1047,8 @@ CZ.update({
     "Drop the file onto a tab (Trim, Convert, …) or into the other folder.":
         "Pusť soubor na kartu (Střih, Převod, …) nebo do druhé složky.",
     "Wait for the current copy to finish.": "Počkej, až skončí probíhající kopírování.",
+    "This folder is read-only or protected, so nothing can be saved in it.\nChoose another folder on the other side, for example Downloads or Documents.":
+        "Do této složky nelze nic ukládat (je jen pro čtení nebo chráněná).\nVyber na druhé straně jinou složku, např. Stažené nebo Dokumenty.",
     "Release on a tab to use the file there:": "Pusť na kartu, kde chceš soubor použít:",
     "Drag the file onto a tab (Trim, Convert, …).": "Přetáhni soubor na kartu (Střih, Převod, …).",
     "Only video and audio files can be dragged onto a tab.": "Na kartu jde přetáhnout jen video a audio soubory.",
@@ -1209,7 +1256,39 @@ def target_video_kbps(target_mb, duration, audio_kbps=128):
 
 
 # ---- Setup tab: install / verify / update tools
-PKG = {"ffmpeg": "ffmpeg", "ytdlp": "yt-dlp", "mpv": "mpv", "deno": "deno", "dnd": "tkinterdnd2"}
+PKG = {"ffmpeg": "ffmpeg", "ytdlp": "yt-dlp", "mpv": "mpv", "deno": "deno", "firefox": "firefox",
+       "dnd": "tkinterdnd2"}
+
+
+def find_firefox():
+    """(path of the Firefox program, its version) or (None, None). Firefox is not on PATH, so the usual places
+    are looked at; the version is read from its application.ini (running Firefox itself would open a window)."""
+    if IS_MAC:
+        app_ = "/Applications/Firefox.app"
+        paths_ = [(app_ + "/Contents/MacOS/firefox", app_ + "/Contents/Resources/application.ini"),
+                  (os.path.expanduser("~") + app_ + "/Contents/MacOS/firefox",
+                   os.path.expanduser("~") + app_ + "/Contents/Resources/application.ini")]
+    elif IS_WIN:
+        paths_ = []
+        for base_ in (os.environ.get("ProgramFiles", r"C:\Program Files"),
+                      os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                      os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs")):
+            d_ = os.path.join(base_, "Mozilla Firefox")
+            paths_.append((os.path.join(d_, "firefox.exe"), os.path.join(d_, "application.ini")))
+    else:
+        found_ = shutil.which("firefox")
+        paths_ = [(found_, "")] if found_ else []
+    for exe_, ini_ in paths_:
+        if exe_ and os.path.isfile(exe_):
+            ver_ = None
+            try:
+                with open(ini_, encoding="utf-8", errors="replace") as fh:
+                    m_ = re.search(r"^Version=(\S+)", fh.read(), re.M)
+                    ver_ = m_.group(1) if m_ else None
+            except OSError:
+                pass
+            return exe_, ver_
+    return None, None
 _DND = {"active": False}  # True once tkinterdnd2 was loaded when the app started
 PIP_DND_SCRIPT = (
     "import subprocess, sys\n"
@@ -1263,7 +1342,8 @@ def tool_command(key, action):
             return ("stream", [brew, "update"])
         if not brew:
             return (None, "Install Homebrew first (top row).")
-        return ("stream", [brew, "install" if action == "install" else "upgrade", PKG[key]])
+        return ("stream", [brew, "install" if action == "install" else "upgrade"]
+                + (["--cask"] if key == "firefox" else []) + [PKG[key]])
     if IS_WIN:
         choco = find_tool("choco")
         if key == "pm":
@@ -1368,6 +1448,8 @@ def probe_tools(full=False):
                 info["dnd"]["version"] = ((info["dnd"]["version"] or "installed") + "  ·  restart the app")
     except Exception:
         info["dnd"] = {"path": None, "version": None, "outdated": None}
+    ff_path, ff_ver = find_firefox()
+    info["firefox"] = {"path": ff_path, "version": ff_ver or ("installed" if ff_path else None), "outdated": None}
     if info["deno"]["path"]:
         name = os.path.splitext(os.path.basename(info["deno"]["path"]))[0].lower()
         line = _first_line([info["deno"]["path"], "--version"]) or ""
@@ -1395,7 +1477,8 @@ def probe_tools(full=False):
         except Exception:
             ok = False
         if ok:
-            for k, n in (("ffmpeg", "ffmpeg"), ("ytdlp", "yt-dlp"), ("mpv", "mpv"), ("deno", "deno")):
+            for k, n in (("ffmpeg", "ffmpeg"), ("ytdlp", "yt-dlp"), ("mpv", "mpv"), ("deno", "deno"),
+                         ("firefox", "firefox")):
                 if info[k]["path"]:
                     info[k]["outdated"] = n in names
             if IS_WIN:
@@ -1609,7 +1692,7 @@ def _is_list_url(u):
 def _probe_flat(ytdlp, url, timeout=120, keep_lists=False):
     """The entries of one yt-dlp listing as [(url, title)] (None if there are none)."""
     try:
-        r = subprocess.run([ytdlp] + cookie_args() + ["--flat-playlist", "--dump-single-json", "--no-warnings",
+        r = subprocess.run([ytdlp] + yt_args() + ["--flat-playlist", "--dump-single-json", "--no-warnings",
                             "--ignore-errors", url],
                            capture_output=True, timeout=timeout, env=tool_env(), **TEXT)
         data = json.loads(r.stdout)
@@ -1772,6 +1855,17 @@ def short_error(text, limit=80):
     lines = [ln.strip() for ln in str(text).splitlines() if ln.strip()]
     if not lines:
         return "unknown error"
+    low = str(text).lower()
+    if "cookie database" in low and ("could not copy" in low or "could not decrypt" in low):
+        # Chrome / Edge lock their cookie file while they run (and newer versions protect it from other programs).
+        # Without the login everything except account-only pages still works, so it is switched off until the
+        # person picks a browser again; the next try then runs without it.
+        YT_ACCOUNT["blocked"] = True
+        return ("Could not read the browser's YouTube login (close that browser completely, or choose Firefox / "
+                "None). The login is switched off for now: just try again.")
+    if "n challenge" in low or "javascript runtime" in low or "only images are available" in low:
+        return ("YouTube needs a JavaScript runtime. Open the Setup tab, install deno and update yt-dlp, "
+                "then try again.")
     pick = next((ln for ln in reversed(lines) if "error" in ln.lower()), lines[-1])
     return pick if len(pick) <= limit else pick[:limit - 1] + "…"
 
@@ -2121,7 +2215,7 @@ def build_download_command(ytdlp, ffmpeg, url, folder, quality, section=None, ex
         if exact:
             extra += ["--force-keyframes-at-cuts"]
         name = "%(title).150B [clip].%(ext)s"
-    return ([ytdlp] + cookie_args() + ["--no-playlist", "--no-mtime", "--newline", "--progress",
+    return ([ytdlp] + yt_args() + ["--no-playlist", "--no-mtime", "--newline", "--progress",
              "--ffmpeg-location", os.path.dirname(ffmpeg),
              "--progress-template",
              "download:PROG %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
@@ -2254,7 +2348,10 @@ def _browse_thumb(e):
 # Signing in to YouTube: yt-dlp reads the login cookies from a browser the person is already signed in with
 # (nothing is typed into or stored by this app).
 YT_ACCOUNT = {"browser": ""}
-YT_BROWSERS = ["None", "Chrome", "Firefox", "Safari", "Edge", "Brave", "Chromium", "Opera", "Vivaldi"]
+# On Windows the Chromium browsers (Chrome, Edge, Brave...) lock and encrypt their cookies against other programs,
+# so only Firefox can share its YouTube login there.
+YT_BROWSERS = (["None", "Firefox"] if IS_WIN else
+               ["None", "Chrome", "Firefox", "Safari", "Edge", "Brave", "Chromium", "Opera", "Vivaldi"])
 YT_FEEDS = XD({"Recommended": ":ytrec", "Subscriptions (new videos)": ":ytsubs",
                "Subscribed channels": "https://www.youtube.com/feed/channels",
                "My playlists": "https://www.youtube.com/feed/playlists", "Watch later": ":ytwatchlater",
@@ -2264,7 +2361,45 @@ YT_FEEDS = XD({"Recommended": ":ytrec", "Subscriptions (new videos)": ":ytsubs",
 def cookie_args():
     """yt-dlp options that use the browser's YouTube login (none if no browser is chosen)."""
     b = YT_ACCOUNT.get("browser") or ""
-    return ["--cookies-from-browser", b] if b else []
+    return ["--cookies-from-browser", b] if b and not YT_ACCOUNT.get("blocked") else []
+
+
+_JS_CACHE = {}
+
+
+def js_runtime_args(for_mpv=False):
+    """yt-dlp options for the JavaScript runtime that YouTube needs (it solves YouTube's 'n challenge'):
+    the runtime FAUN found (deno, node, bun) is named explicitly, and the solver script may be fetched from
+    yt-dlp's own repository if this yt-dlp does not carry it. [] for an old yt-dlp that does not know the
+    options (before 2025.10.22) or when no runtime is installed."""
+    if "ok" not in _JS_CACHE:
+        ytdlp = find_tool("yt-dlp")
+        ver = ""
+        if ytdlp:
+            try:
+                ver = subprocess.run([ytdlp, "--version"], capture_output=True, timeout=20, env=tool_env(),
+                                     stdin=subprocess.DEVNULL, **TEXT).stdout.strip()
+            except (OSError, subprocess.SubprocessError):
+                ver = ""
+        _JS_CACHE["ok"] = bool(re.fullmatch(r"\d{4}\.\d{2}\.\d{2}.*", ver)) and ver[:10] >= "2025.10.22"
+        _JS_CACHE["t"] = time.time()
+    if not _JS_CACHE["ok"]:
+        return []
+    if time.time() - _JS_CACHE.get("rt_t", 0) > 30:  # look again now and then (the person may install deno)
+        _JS_CACHE["rt_t"] = time.time()
+        _JS_CACHE["rt"] = next(((n, find_tool(n)) for n in ("deno", "node", "bun", "qjs") if find_tool(n)), None)
+    rt = _JS_CACHE.get("rt")
+    if not rt:
+        return []
+    name = "quickjs" if rt[0] == "qjs" else rt[0]
+    if for_mpv:  # mpv: one comma separated option, found through PATH
+        return ["js-runtimes=" + name, "remote-components=ejs:github"]
+    return ["--js-runtimes", f"{name}:{rt[1]}", "--remote-components", "ejs:github"]
+
+
+def yt_args():
+    """The yt-dlp options every YouTube call gets: the browser login (if chosen) and the JavaScript runtime."""
+    return cookie_args() + js_runtime_args()
 
 
 BROWSE_SECTIONS = {"Videos": "videos", "Shorts": "shorts", "Live": "streams", "Playlists": "playlists",
@@ -2715,7 +2850,7 @@ browse_fetch.note = ""
 def _browse_ytdlp(ytdlp, query, start, end, timeout):
     """(rows, error_text) for one yt-dlp list address."""
     try:
-        r = subprocess.run([ytdlp] + cookie_args() + ["--flat-playlist", "--dump-single-json", "--no-warnings",
+        r = subprocess.run([ytdlp] + yt_args() + ["--flat-playlist", "--dump-single-json", "--no-warnings",
                             "--ignore-errors", "--playlist-items", f"{start}:{end}", query],
                            capture_output=True, timeout=timeout, env=tool_env(), **TEXT)
     except subprocess.TimeoutExpired:
@@ -2732,7 +2867,7 @@ def _browse_ytdlp(ytdlp, query, start, end, timeout):
 def browse_details(ytdlp, url, timeout=60):
     """The full description of one video ('' if it can't be read)."""
     try:
-        r = subprocess.run([ytdlp] + cookie_args() + ["--dump-single-json", "--no-playlist", "--no-warnings", url],
+        r = subprocess.run([ytdlp] + yt_args() + ["--dump-single-json", "--no-playlist", "--no-warnings", url],
                            capture_output=True, timeout=timeout, env=tool_env(), **TEXT)
         return (json.loads(r.stdout).get("description") or "").strip()
     except Exception:
@@ -2811,6 +2946,149 @@ def mpv_ipc(sock, messages, wait_id=None, timeout=2.0, wait_ids=None):
         except OSError:
             pass
     return None
+
+
+MPV_KEYS = """\
+NEXT set user-data/faun-cmd next
+PREV set user-data/faun-cmd prev
+ENTER set user-data/faun-cmd next
+KP_ENTER set user-data/faun-cmd next
+BS set user-data/faun-cmd prev
+UP add volume 5
+DOWN add volume -5
+LEFT seek -5
+RIGHT seek 5
+Ctrl+Shift+RIGHT set user-data/faun-cmd next
+Ctrl+Shift+LEFT set user-data/faun-cmd prev
+"""
+
+
+def mpv_keys_option():
+    """The mpv option that loads FAUN's key map: media keys Next / Previous (and Enter / Backspace)
+    skip to the next / previous item of FAUN's list, Up / Down change the volume."""
+    import tempfile
+    path = os.path.join(tempfile.gettempdir(), "faun-mpv-keys-%d.conf" % os.getpid())
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(MPV_KEYS)
+    except OSError:
+        return None
+    return "--input-conf=" + path
+
+
+MPV_SKIP_LUA = """\
+-- FAUN: gives mpv's own previous / next buttons something to go to, so they skip to the previous / next item
+-- of FAUN's list: the playlist is [previous, this one, next] and FAUN is told when mpv moves to one of the
+-- two placeholders (FAUN then loads the real file).
+local NEXT_P, PREV_P = "faun-skip://next", "faun-skip://prev"
+mp.register_event("file-loaded", function()
+    local path = mp.get_property("path")
+    if not path or path == NEXT_P or path == PREV_P then return end
+    if mp.get_property_number("playlist-count", 1) > 1 then return end
+    mp.commandv("loadfile", NEXT_P, "append")
+    mp.commandv("loadfile", PREV_P, "append")
+    mp.commandv("playlist-move", "2", "0")
+end)
+mp.register_event("start-file", function()
+    local path = mp.get_property("path")
+    if path == NEXT_P then
+        mp.set_property("user-data/faun-cmd", "next")
+    elseif path == PREV_P then
+        mp.set_property("user-data/faun-cmd", "prev")
+    else
+        return
+    end
+    mp.command("stop")
+end)
+"""
+
+
+def mpv_skip_script_option():
+    """The mpv option that loads FAUN's skip script (see MPV_SKIP_LUA), or None if it cannot be written."""
+    import tempfile
+    path = os.path.join(tempfile.gettempdir(), "faun-mpv-skip-%d.lua" % os.getpid())
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(MPV_SKIP_LUA)
+    except OSError:
+        return None
+    return "--script=" + path
+
+
+def mpv_take_command(sock, res, rid=6):
+    """Read (and clear) the command a key in the mpv window left behind; '' when there is none."""
+    cmd = res.get(rid) if isinstance(res, dict) else None
+    if isinstance(cmd, str) and cmd:
+        try:
+            mpv_ipc(sock, [{"command": ["set_property", "user-data/faun-cmd", ""]}])
+        except OSError:
+            pass
+        return cmd
+    return ""
+
+
+VU_AF = ("--af=@faunvu:lavfi=[astats=metadata=1:reset=1:measure_perchannel=Peak_level+RMS_level:"
+         "measure_overall=none]")
+
+
+def vu_live_worker(sock, stop, hist):
+    """Background job for the VU meter of the Browse player: keeps one connection to mpv open and, about 25
+    times a second, reads the levels of its 'faunvu' audio filter. Appends (time, left_rms, right_rms,
+    left_peak, right_peak) in dB to hist. Ends when stop["stop"] is set or mpv is gone."""
+    try:
+        if IS_WIN:
+            f = open(sock, "r+b", buffering=0)
+            read, write, close = f.readline, f.write, f.close
+        else:
+            import socket as _socket
+            c = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+            c.settimeout(2.0)
+            c.connect(sock)
+            fh = c.makefile("rb")
+            read, write, close = fh.readline, c.sendall, c.close
+    except OSError:
+        stop["stop"] = True
+        return
+    ask = json.dumps({"command": ["get_property", "af-metadata/faunvu"], "request_id": 77}).encode() + b"\n"
+    last = None
+    try:
+        while not stop.get("stop"):
+            write(ask)
+            for _ in range(50):  # skip mpv's events until our answer comes
+                line = read()
+                if not line:
+                    raise OSError("closed")
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                if msg.get("request_id") == 77:
+                    d = msg.get("data")
+                    if isinstance(d, dict) and d != last:
+                        last = d
+
+                        def val(key):
+                            """One level from the filter's metadata (-90 for silence / missing)."""
+                            try:
+                                return max(-90.0, float(d.get("lavfi.astats." + key)))
+                            except (TypeError, ValueError):
+                                return -90.0
+                        l_rms, l_pk = val("1.RMS_level"), val("1.Peak_level")
+                        r_rms = val("2.RMS_level") if "lavfi.astats.2.RMS_level" in d else l_rms
+                        r_pk = val("2.Peak_level") if "lavfi.astats.2.Peak_level" in d else l_pk
+                        hist.append((time.monotonic(), l_rms, r_rms, l_pk, r_pk))
+                        if len(hist) > 80:
+                            del hist[:40]
+                    break
+            time.sleep(0.04)
+    except OSError:
+        pass
+    finally:
+        stop["stop"] = True
+        try:
+            close()
+        except OSError:
+            pass
 
 
 # ---- audio visualizer (drawn by mpv from the audio it plays, with ffmpeg's filters)
@@ -3593,12 +3871,16 @@ def run_gui():
 
     # Setup (install / verify / update tools)
     t = tab("Setup")
-    tool_status = {k: TrVar(value="—") for k in ("pm", "ffmpeg", "ytdlp", "mpv", "deno", "dnd")}
+    tool_status = {k: TrVar(value="—") for k in ("pm", "ffmpeg", "ytdlp", "mpv", "deno", "firefox", "dnd")}
     setup_btns = []
     mono = "Menlo" if IS_MAC else ("Consolas" if IS_WIN else "DejaVu Sans Mono")
     rows = (("pm", "Chocolatey" if IS_WIN else "Homebrew"), ("ffmpeg", "ffmpeg"), ("ytdlp", "yt-dlp"),
             ("mpv", "mpv  (player: pause, timeline)"), ("deno", "deno  (YouTube for yt-dlp)"),
-            ("dnd", "tkinterdnd2  (drag & drop of files)"))
+            ("dnd", "tkinterdnd2  (drag & drop of files)"), ("firefox", "Firefox  (YouTube login, optional)"))
+    if not IS_WIN:  # on a Mac Chrome, Safari and the others can share their login: Firefox is not special there
+        rows = tuple(r_ for r_ in rows if r_[0] != "firefox")
+        del tool_status["firefox"]
+    note_rows = 1 if IS_WIN else 0
     for i, (key, label) in enumerate(rows):
         ttk.Label(t, text=label).grid(row=i, column=0, sticky="w", pady=3, padx=(0, 10))
         ttk.Label(t, textvariable=tool_status[key], width=34).grid(
@@ -3609,10 +3891,10 @@ def run_gui():
             b.grid(row=i, column=c, padx=2, pady=2)
             setup_btns.append(b)
     b_all = ttk.Button(t, text="Verify all", command=lambda: verify(list(tool_status), True))
-    b_all.grid(row=6, column=2, columnspan=3, sticky="e", pady=(4, 0))
+    b_all.grid(row=len(rows), column=2, columnspan=3, sticky="e", pady=(4, 0))
     setup_btns.append(b_all)
     f_log = ttk.Frame(t)
-    f_log.grid(row=7, column=0, columnspan=5, sticky="nsew", pady=(8, 0))
+    f_log.grid(row=len(rows) + 1, column=0, columnspan=5, sticky="nsew", pady=(8, 0))
     log_text = tk.Text(f_log, height=6, width=74, wrap="word", state="disabled",
                        font=(mono, 9))
     log_sb = ttk.Scrollbar(f_log, command=log_text.yview)
@@ -3624,15 +3906,20 @@ def run_gui():
                        "Homebrew installs in a Terminal window (it asks for your Mac password).\n"
                        "ffmpeg, yt-dlp, mpv and deno install here; the output is shown above."),
               style="Hint.TLabel", justify="left").grid(
-        row=8, column=0, columnspan=5, sticky="w", pady=(6, 0))
+        row=len(rows) + 2, column=0, columnspan=5, sticky="w", pady=(6, 0))
+    if IS_WIN:
+        ttk.Label(t, text=("Firefox is optional. On Windows only Firefox can share its YouTube login with FAUN\n"
+                           "(Chrome, Edge and Brave lock their cookies against other programs)."),
+                  style="Hint.TLabel", justify="left").grid(
+            row=len(rows) + 3, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
     setup_tab = t
     t.columnconfigure(5, weight=1)
     about_area = ttk.Frame(t)  # the free space right of the tools: the about card is built further down
-    about_area.grid(row=0, column=5, rowspan=10, sticky="nsew", padx=(30, 0))
-    t.rowconfigure(9, weight=1)  # an empty last row takes the spare height, so the area is as tall as the tab
+    about_area.grid(row=0, column=5, rowspan=len(rows) + 4 + note_rows, sticky="nsew", padx=(30, 0))
+    t.rowconfigure(len(rows) + 3 + note_rows, weight=1)  # an empty last row takes the spare height, so the area is as tall as the tab
     about_below = ttk.Frame(t)  # the free space under the tools: used when there is no room at the right
-    about_below.grid(row=9, column=0, columnspan=6, sticky="nsew")
+    about_below.grid(row=len(rows) + 3 + note_rows, column=0, columnspan=6, sticky="nsew")
 
     # Download (yt-dlp)
     download_tab = t = tab("Quick download")
@@ -3766,6 +4053,9 @@ def run_gui():
     combo(f_bq3, yt_feed_var, list(YT_FEEDS), 24).pack(side="left", padx=(4, 0))
     ttk.Button(f_bq3, text="Open", width=6, command=lambda: yt_open_feed()).pack(side="left", padx=(8, 0))
     yt_browser_combo.bind("<<ComboboxSelected>>", lambda e: yt_browser_set())
+    if IS_WIN:
+        ttk.Label(f_bq, text="Windows: only Firefox can share its login (Chrome, Edge and Brave lock their cookies "
+                             "against other programs).", style="Hint.TLabel").pack(anchor="w", pady=(2, 0))
 
     f_bmid = ttk.Frame(t)
     f_bmid.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
@@ -3993,6 +4283,14 @@ def run_gui():
     forget_btn.pack(side="left", padx=(8, 0))
     setup_btns.append(forget_btn)
 
+    def album_typed(*_):
+        """An album was typed: the 'Write tags' step is needed to use it, so tick it."""
+        v_ = batch_step_vars.get("Write tags")
+        if album_var.get().strip() and v_ is not None and not v_.get():
+            v_.set(True)
+            apply_batch_row_state()
+    album_var.trace_add("write", album_typed)
+
     def apply_batch_row_state(*_):
         """Grey out whatever the ticked steps don't use."""
         steps = [s for s, v in batch_step_vars.items() if v.get()]
@@ -4007,7 +4305,7 @@ def run_gui():
         dl_choose.config(state="normal" if idle else "disabled")
         dl_quality_combo.config(state="readonly" if dl_on else "disabled")
         prefix_entry.config(state="normal" if name_on else "disabled")
-        album_entry.config(state="normal" if tagging and idle else "disabled")
+        album_entry.config(state="normal" if idle else "disabled")  # (typing in it ticks "Write tags")
         numbering_cb.config(state="normal" if name_on else "disabled")
         known_cb.config(state="normal" if dl_on else "disabled")
         can_skip = state["busy"] and state["batch_running"] and time.time() >= state["skip_until"]
@@ -4280,6 +4578,9 @@ def run_gui():
         if not mpv:
             return
         import tempfile
+        fm_stop(quiet=True)  # one thing plays at a time
+        browse_stop(quiet=True)
+        loudness_play(None)
         sock = (r"\\.\pipe\faun-trim-%d" % os.getpid() if IS_WIN else
                 os.path.join(tempfile.gettempdir(), "faun-trim-%d.sock" % os.getpid()))
         if not IS_WIN:
@@ -4288,12 +4589,13 @@ def run_gui():
             except OSError:
                 pass
         cmd = [mpv, "--input-ipc-server=" + sock, "--keep-open=yes", "--force-window=yes",
-               "--no-terminal", "--title=Trim preview", f"--start={s_:.3f}", src]
+               "--no-terminal", "--title=Trim preview", f"--start={s_:.3f}"] + [
+            o for o in [mpv_keys_option()] if o] + [src]
         try:
             tl["proc"] = subprocess.Popen(cmd, env=tool_env(), creationflags=NO_WINDOW,
                                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                           stderr=subprocess.DEVNULL)
-            tl["sock"] = sock
+            tl["sock"], tl["path"] = sock, src
         except OSError as ex:
             status_var.set(f"Could not start the player: {ex}")
         trim_draw()
@@ -4376,18 +4678,7 @@ def run_gui():
                              "The video is already compressed well: try H.265, a target size or a lower resolution."))
         else:
             prev_info.set(f"Preview of {fmt_length(n_)} from {fmt_length(at_)}: {human_size(size)}.")
-        pl = find_player()
-        try:
-            if pl and pl[0] == "mpv":
-                subprocess.Popen([pl[1], out, "--keep-open=yes", "--force-window=yes",
-                                  "--title=Compression preview"], env=tool_env(), creationflags=NO_WINDOW,
-                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            elif pl:
-                subprocess.Popen([pl[1], out], creationflags=NO_WINDOW)
-            else:
-                status_var.set("No player found: install mpv from the Setup tab to watch the preview.")
-        except OSError as ex:
-            status_var.set(f"Could not start the player: {ex}")
+        sample_play(out, "Compression preview")
 
     def trim_pause():
         """Pause / resume the preview."""
@@ -4402,10 +4693,7 @@ def run_gui():
         """Close the preview player."""
         if trim_alive():
             trim_send([{"command": ["quit"]}])
-            try:
-                tl["proc"].terminate()
-            except OSError:
-                pass
+            kill_proc(tl["proc"])
         tl.update(proc=None, paused=False, stop_at=None)
         trim_ui()
 
@@ -4445,6 +4733,8 @@ def run_gui():
         pos, paused = res.get(1), res.get(2)
         if isinstance(paused, bool):
             tl["paused"] = paused
+        if isinstance(pos, (int, float)):
+            vu_clock_set(float(pos), tl["paused"], time.monotonic())  # keeps the VU meter in step
         if isinstance(pos, (int, float)) and not tl["drag"]:
             tl["pos"] = float(pos)
             if tl["stop_at"] is not None and pos >= tl["stop_at"] - 0.02 and not tl["paused"]:
@@ -4494,7 +4784,7 @@ def run_gui():
             root.after(300, trim_poll)
 
     import atexit
-    atexit.register(lambda: tl["proc"].terminate() if trim_alive() else None)
+    atexit.register(lambda: kill_proc(tl["proc"]) if trim_alive() else None)
     root.after(300, trim_poll)
 
     # Convert
@@ -4918,6 +5208,10 @@ def run_gui():
         paths = [p for p in paths if os.path.exists(p)]
         if not paths:
             return
+        if not os.access(dest_dir, os.W_OK):
+            messagebox.showinfo("Files", "This folder is read-only or protected, so nothing can be saved in it.\n"
+                                         "Choose another folder on the other side, for example Downloads or Documents.")
+            return
         fm_job["busy"] = True
         verb = "Moving" if move else "Copying"
 
@@ -5084,9 +5378,11 @@ def run_gui():
         import tempfile
         browse_stop(quiet=True)  # one thing plays at a time
         fm_stop(quiet=True)
+        loudness_play(None)
         sock = (r"\\.\pipe\faun-mpv-files-%d" % os.getpid() if IS_WIN else
                 os.path.join(tempfile.gettempdir(), "faun-mpv-files-%d.sock" % os.getpid()))
-        cmd = [exe, "--input-ipc-server=" + sock, "--keep-open=yes"]
+        cmd = [exe, "--input-ipc-server=" + sock, "--keep-open=always", "--idle=yes"] + [
+            o for o in [mpv_keys_option(), mpv_skip_script_option()] if o]
         if fm_vis_var.get():  # patterns drawn from the sound
             golden_folder()  # makes the pictures the spiral style needs
             cmd += ["--lavfi-complex=" + visualizer_graph(untr(fm_vis_style_var.get()), ffmpeg_has_pseudocolor()),
@@ -5107,10 +5403,7 @@ def run_gui():
                 mpv_ipc(fm_player["sock"], [{"command": ["quit"]}])
             except OSError:
                 pass
-            try:
-                fm_player["proc"].terminate()
-            except OSError:
-                pass
+            kill_proc(fm_player["proc"])
             if not quiet:
                 status_var.set("Stopped.")
         fm_player["proc"], fm_player["paused"] = None, False
@@ -5206,10 +5499,14 @@ def run_gui():
             res = mpv_ipc(fm_player["sock"], [{"command": ["get_property", "time-pos"], "request_id": 1},
                                               {"command": ["get_property", "duration"], "request_id": 2},
                                               {"command": ["get_property", "pause"], "request_id": 3},
-                                              {"command": ["get_property", "eof-reached"], "request_id": 4}],
-                          wait_ids=[1, 2, 3, 4], timeout=1.0)
+                                              {"command": ["get_property", "eof-reached"], "request_id": 4},
+                                              {"command": ["get_property", "user-data/faun-cmd"], "request_id": 6}],
+                          wait_ids=[1, 2, 3, 4, 6], timeout=1.0)
+            key_cmd = mpv_take_command(fm_player["sock"], res)
         except OSError:
-            res = None
+            res, key_cmd = None, ""
+        if key_cmd:
+            root.after(0, lambda c=key_cmd: player_key(c))
         fm_player["t_meas"] = (t_send + time.monotonic()) / 2  # when mpv really answered (not when the main thread got to it)
         root.after(0, lambda: fm_progress_apply(res))
 
@@ -5275,7 +5572,7 @@ def run_gui():
         threading.Thread(target=work, daemon=True).start()
 
     import atexit
-    atexit.register(lambda: fm_player["proc"].terminate() if fm_alive() else None)
+    atexit.register(lambda: kill_proc(fm_player["proc"]) if fm_alive() else None)
 
     def fm_set_batch_folder(sel_, pane_):
         """Adding from the Files tab: "Save to" of the Batch tab becomes the folder you picked from,
@@ -5815,7 +6112,8 @@ def run_gui():
                "Every video set to the same level plays at the same volume. The picture is copied\n"
                "untouched (fast); only the sound is re-encoded. Keeps the first audio track.")
 
-    loud_prev = {"busy": False, "orig": None, "adj": None, "proc": None, "meas": {}}
+    loud_prev = {"busy": False, "orig": None, "adj": None, "proc": None, "meas": {}, "sock": None, "path": None,
+                 "paused": False, "poll_busy": False}
     lp_at_var = tk.StringVar()
     lp_info = TrVar(value="")
     f_lp = ttk.Frame(t)
@@ -5921,24 +6219,61 @@ def run_gui():
                     f"Target {target:g} LUFS: {gain:+.1f} dB. "
                     f"Listen to {fmt_length(n_)} from {fmt_length(at_)}, as it is and adjusted.")
 
-    def loudness_play(which):
-        """Play the original or the adjusted sample (None: just stop what is playing)."""
+    def loud_alive():
+        """True while the loudness preview player (mpv) is running."""
         p_ = loud_prev.get("proc")
-        if p_ and p_.poll() is None:
-            try:
-                p_.terminate()
-            except OSError:
-                pass
-        loud_prev["proc"] = None
-        path_ = loud_prev.get(which) if which else None
-        if not path_ or not os.path.isfile(path_):
-            return
+        return bool(p_ and p_.poll() is None)
+
+    def loud_poll():
+        """Every half second: ask the preview player where it is, so the VU meter can follow the sound."""
+        try:
+            if loud_alive() and loud_prev.get("sock") and not loud_prev["poll_busy"]:
+                loud_prev["poll_busy"] = True
+                sock_ = loud_prev["sock"]
+
+                def ask():
+                    """Read the position and pause state from mpv in the background."""
+                    t0 = time.monotonic()
+                    try:
+                        res = mpv_ipc(sock_, [{"command": ["get_property", "time-pos"], "request_id": 1},
+                                              {"command": ["get_property", "pause"], "request_id": 2}],
+                                      wait_ids=[1, 2], timeout=1.0)
+                    except OSError:
+                        res = None
+                    t_meas = (t0 + time.monotonic()) / 2
+
+                    def apply():
+                        """Hand the position to the VU meter."""
+                        loud_prev["poll_busy"] = False
+                        if isinstance(res, dict) and isinstance(res.get(1), (int, float)):
+                            loud_prev["paused"] = res.get(2) is True
+                            vu_clock_set(float(res[1]), res.get(2) is True, t_meas)
+                    root.after(0, apply)
+                threading.Thread(target=ask, daemon=True).start()
+        finally:
+            root.after(500, loud_poll)
+
+    def sample_play(path_, title):
+        """Play a short sample in its own mpv window (the loudness and compression previews) with a control
+        socket, so the VU meter and the keyboard shortcuts work. Stops what played before."""
+        loudness_play(None)
         pl = find_player()
         try:
             if pl and pl[0] == "mpv":
+                import tempfile
+                fm_stop(quiet=True)  # one thing plays at a time
+                browse_stop(quiet=True)
+                sock_ = (r"\\.\pipe\faun-mpv-loud-%d" % os.getpid() if IS_WIN else
+                         os.path.join(tempfile.gettempdir(), "faun-mpv-loud-%d.sock" % os.getpid()))
+                if not IS_WIN:
+                    try:
+                        os.remove(sock_)
+                    except OSError:
+                        pass
+                loud_prev.update(sock=sock_, path=path_, paused=False)
                 loud_prev["proc"] = subprocess.Popen(
-                    [pl[1], path_, "--keep-open=yes", "--force-window=yes",
-                     "--title=" + ("Original" if which == "orig" else "Adjusted")],
+                    [pl[1], "--input-ipc-server=" + sock_, path_, "--keep-open=yes", "--force-window=yes",
+                     "--title=" + title] + [o for o in [mpv_keys_option()] if o],
                     env=tool_env(), creationflags=NO_WINDOW, stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             elif pl:
@@ -5947,6 +6282,16 @@ def run_gui():
                 status_var.set("No player found: install mpv from the Setup tab to listen to the preview.")
         except OSError as ex:
             status_var.set(f"Could not start the player: {ex}")
+
+    def loudness_play(which):
+        """Play the original or the adjusted sample (None: just stop what is playing)."""
+        p_ = loud_prev.get("proc")
+        if p_ and p_.poll() is None:
+            kill_proc(p_)  # on Windows also stops the real player behind a Chocolatey "shim" program
+        loud_prev["proc"] = None
+        path_ = loud_prev.get(which) if which else None
+        if path_ and os.path.isfile(path_):
+            sample_play(path_, "Original" if which == "orig" else "Adjusted")
 
     def update_norm_label():
         """Show the chosen loudness target as text and as a preset name."""
@@ -5979,6 +6324,7 @@ def run_gui():
 
     # --- GPU option (detected in the background: VideoToolbox / NVENC / QSV / AMF)
     gpu_var = tk.BooleanVar(value=False)
+    root.after(500, loud_poll)
     f_bottom = ttk.Frame(main)  # options on the left, the file's cover and tags on the right
     f_bottom.pack(fill="x")
 
@@ -6177,7 +6523,11 @@ def run_gui():
     vu = {"path": None, "data": [], "stop": {}, "clock": (0.0, 0.0, False), "disp": [-60.0, -60.0],
           "peak": [-60.0, -60.0], "peak_t": [0.0, 0.0], "last": 0.0, "w": 0, "segs": [], "marks": [],
           "txt": None, "shown": False}
-    VU_LO = -48.0  # the bottom of the scale in dB (0 dB = full scale)
+    VU_LO = -48.0  # the bottom of the scale in dBFS (0 dBFS = full scale)
+    VU_REF = -12.0  # 0 VU = an average (RMS) level of -12 dBFS, so there is room for the +3 VU of a real VU meter
+    VU_HI = VU_REF + 3.0  # the top of the scale: +3 VU
+    VU_SPAN = VU_HI - VU_LO
+    VU_MARKS = (-36, -24, -12, -6, 0, 3)  # the numbers on the scale, in VU
 
     vu_style_var = tk.StringVar(value="Bars")  # "Bars" or "Needle" (remembered)
 
@@ -6226,9 +6576,10 @@ def run_gui():
                 vu["segs"].append(row)
                 vu["marks"].append(f_vu.create_rectangle(x0, yy - 3, x0 + 3, yy + 31, fill="#ffffff", outline="",
                                                          tags="vu"))
-            for db in (-48, -36, -24, -12, -6, 0):  # the scale below the bars
-                xx = x0 + (x1 - x0) * (db - VU_LO) / (0 - VU_LO)
-                f_vu.create_text(min(xx, x1), 130, text=str(db), fill=cap_, font=(UI_FONT, 8), tags="vu")
+            for v_ in VU_MARKS:  # the scale below the bars
+                xx = x0 + (x1 - x0) * (v_ + VU_REF - VU_LO) / VU_SPAN
+                f_vu.create_text(min(xx, x1), 130, text=("%+d" % v_) if v_ > 0 else str(v_), fill=cap_,
+                                 font=(UI_FONT, 8), tags="vu")
             vu["lit"] = [[None] * n, [None] * n]
         else:  # two analogue dials, one for each channel
             vu["dials"], vu["needles"], vu["pmarks"] = [], [], []
@@ -6238,19 +6589,22 @@ def run_gui():
             for ch, name in enumerate(("L", "R")):
                 cx = 14 + dw / 2 + ch * (dw + 14)
                 vu["dials"].append((cx, cy, r))
-                for lo, hi, col in ((VU_LO, -18, "#35c759"), (-18, -9, "#ffd60a"), (-9, 0, "#ff453a")):
-                    a0 = 145 - 110 * (lo - VU_LO) / (0 - VU_LO)  # angle of the start of this colour zone
-                    a1 = 145 - 110 * (hi - VU_LO) / (0 - VU_LO)
+                for lo, hi, col in ((VU_LO, -18, "#35c759"), (-18, VU_REF, "#ffd60a"), (VU_REF, VU_HI, "#ff453a")):
+                    a0 = 145 - 110 * (lo - VU_LO) / VU_SPAN  # angle of the start of this colour zone
+                    a1 = 145 - 110 * (hi - VU_LO) / VU_SPAN
                     f_vu.create_arc(cx - r, cy - r, cx + r, cy + r, start=a1, extent=a0 - a1, style="arc",
                                     outline=col, width=5, tags="vu")
-                for db in (-48, -36, -24, -12, -6, 0):  # ticks and numbers
-                    ang = math.radians(145 - 110 * (db - VU_LO) / (0 - VU_LO))
+                for v_ in VU_MARKS:  # ticks and numbers
+                    db = v_ + VU_REF
+                    ang = math.radians(145 - 110 * (db - VU_LO) / VU_SPAN)
                     f_vu.create_line(cx + (r - 8) * math.cos(ang), cy - (r - 8) * math.sin(ang),
                                      cx + (r + 1) * math.cos(ang), cy - (r + 1) * math.sin(ang),
                                      fill=cap_, width=1, tags="vu")
-                    if db in (-36, -12, 0):
-                        f_vu.create_text(cx + (r - 18) * math.cos(ang), cy - (r - 18) * math.sin(ang), text=str(db),
-                                         fill=cap_, font=(UI_FONT, 8), tags="vu")
+                    if v_ in (-36, -24, -12, 0, 3):  # (the +3 sits outside the arc: it is close to the 0)
+                        rl_ = r + 11 if v_ == 3 else r - 18
+                        f_vu.create_text(cx + rl_ * math.cos(ang), cy - rl_ * math.sin(ang),
+                                         text=("%+d" % v_) if v_ > 0 else str(v_), fill=cap_, font=(UI_FONT, 8),
+                                         tags="vu")
                 f_vu.create_text(cx, cy + 14, text=name, fill=cap_, font=(UI_FONT, 10, "bold"), tags="vu")
                 vu["pmarks"].append(f_vu.create_line(cx, cy, cx, cy, fill="#ffffff", width=2, tags="vu"))
                 vu["needles"].append(f_vu.create_line(cx, cy, cx, cy - r, fill=txt_, width=2, capstyle="round",
@@ -6260,13 +6614,13 @@ def run_gui():
 
     def vu_colour(i, n):
         """Colour of the lit segment number i: green, then yellow, then red near full scale."""
-        db = VU_LO + (0 - VU_LO) * (i + 1) / n
-        return "#35c759" if db < -18 else ("#ffd60a" if db < -9 else "#ff453a")
+        db = VU_LO + VU_SPAN * (i + 1) / n
+        return "#35c759" if db < -18 else ("#ffd60a" if db < VU_REF else "#ff453a")
 
     def vu_draw():
         """Light the segments up to the current levels (or swing the needles) and move the peak markers."""
-        txt_now = (((("%.1f dB" % max(vu["disp"])) if vu.get("narrow") else
-                     "L %5.1f   R %5.1f dB" % (vu["disp"][0], vu["disp"][1])))
+        txt_now = (((("%+.1f VU" % (max(vu["disp"]) - VU_REF)) if vu.get("narrow") else
+                     "L %+5.1f   R %+5.1f VU" % (vu["disp"][0] - VU_REF, vu["disp"][1] - VU_REF)))
                    if vu["disp"][0] > -59 or vu["disp"][1] > -59 else "")
         t_now = time.monotonic()
         if txt_now != vu.get("txt_last") and t_now - vu.get("txt_t", 0.0) > 0.12:  # the numbers: ~8 times a second
@@ -6276,7 +6630,7 @@ def run_gui():
             for ch in (0, 1):
                 cx, cy, r = vu["dials"][ch]
                 for key_, db_, r0_, r1_ in (("needles", vu["disp"][ch], 0, r - 3), ("pmarks", vu["peak"][ch], r - 14, r + 2)):
-                    fr_ = min(1.0, max(0.0, (db_ - VU_LO) / (0 - VU_LO)))
+                    fr_ = min(1.0, max(0.0, (db_ - VU_LO) / VU_SPAN))
                     ang = math.radians(145 - 110 * fr_)
                     f_vu.coords(vu[key_][ch], cx + r0_ * math.cos(ang), cy - r0_ * math.sin(ang),
                                 cx + r1_ * math.cos(ang), cy - r1_ * math.sin(ang))
@@ -6284,14 +6638,14 @@ def run_gui():
             return
         n, x0, x1 = vu["n"], vu["x0"], vu["x1"]
         for ch in (0, 1):
-            frac = min(1.0, max(0.0, (vu["disp"][ch] - VU_LO) / (0 - VU_LO)))
+            frac = min(1.0, max(0.0, (vu["disp"][ch] - VU_LO) / VU_SPAN))
             lit_n = int(round(frac * n))
             for i in range(n):
                 col = vu_colour(i, n) if i < lit_n else vu["off"]
                 if vu["lit"][ch][i] != col:
                     vu["lit"][ch][i] = col
                     f_vu.itemconfigure(vu["segs"][ch][i], fill=col)
-            pf = min(1.0, max(0.0, (vu["peak"][ch] - VU_LO) / (0 - VU_LO)))
+            pf = min(1.0, max(0.0, (vu["peak"][ch] - VU_LO) / VU_SPAN))
             xx = x0 + (x1 - x0) * pf
             yy = (38, 84)[ch]
             f_vu.coords(vu["marks"][ch], xx - 3, yy - 3, xx, yy + 31)
@@ -6326,9 +6680,15 @@ def run_gui():
             vu["last"] = now
             target = [-60.0, -60.0]
             tpk = [-60.0, -60.0]
-            if fm_alive() and fm_player["path"]:
-                if fm_player["path"] != vu["path"]:
-                    vu_start(fm_player["path"])
+            file_ = fm_player["path"] if fm_alive() and fm_player["path"] else (
+                loud_prev.get("path") if loud_alive() else (tl.get("path") if trim_alive() else None))
+            if not file_ and browse_player_alive() and not br_player.get("vis"):
+                live_ = vu_live_state(now)  # Browse: the levels mpv measures while it plays
+                if live_:
+                    target, tpk = [max(-60.0, live_[0]), max(-60.0, live_[1])], [max(-60.0, live_[2]), max(-60.0, live_[3])]
+            elif file_:
+                if file_ != vu["path"]:
+                    vu_start(file_)
                 pos0, t0, paused_ = vu["clock"]
                 pos = pos0 if paused_ else pos0 + (now - t0)
                 idx = int(max(0.0, pos) / 0.05)
@@ -6347,6 +6707,27 @@ def run_gui():
             pass
         finally:
             root.after(33, vu_tick)
+    def vu_live_state(now):
+        """Browse: (left rms, right rms, left peak, right peak) in dB, as mpv measured them about now
+        (shown a little later, because mpv measures before the sound is played). None while paused / no data."""
+        sock_ = br_player.get("sock")
+        lv = vu.setdefault("live", {"stop": {"stop": True}, "hist": [], "sock": None, "try": 0.0})
+        if sock_ and (lv["sock"] != sock_ or lv["stop"].get("stop")) and now - lv["try"] > 1.0:
+            lv["stop"]["stop"] = True
+            lv.update(stop={}, hist=[], sock=sock_)
+            lv["try"] = now
+            threading.Thread(target=vu_live_worker, args=(sock_, lv["stop"], lv["hist"]), daemon=True).start()
+        if br_player.get("paused"):
+            return None
+        hist = lv["hist"]
+        pick = None
+        for item in list(hist):
+            if item[0] <= now - 0.15:
+                pick = item
+        if pick is None or now - pick[0] > 0.6:
+            return None
+        return pick[1:]
+
     def vu_clock_update(pos, paused_, t_meas):
         """A new position report: correct the meter's clock gently (no jumps), or at once after a seek / pause."""
         old_pos, old_t, old_paused = vu["clock"]
@@ -6358,36 +6739,66 @@ def run_gui():
     vu_clock_hook[0] = vu_clock_update
     f_vu.bind("<Map>", lambda e: vu.update(shown=True))
     f_vu.bind("<Unmap>", lambda e: vu.update(shown=False))
-    atexit_vu = lambda: vu_stop()
+    atexit_vu = lambda: (vu_stop(), vu.get("live", {}).get("stop", {}).update(stop=True))
     import atexit as _atexit
     _atexit.register(atexit_vu)
     vu_build()
     root.after(500, vu_tick)
 
 
-    # --- the about card on the Setup tab: logo, name, author, version
-    f_card = bordered(setup_tab, lift=True, radius=16, width=340, height=330)
+    # --- the about card on the Setup tab: logo, name, author, version.
+    # The sizes are in pixels but the fonts are in points, so on a screen with Windows scaling (125 %, 150 %)
+    # the texts get taller. The positions below are therefore only minimums: each line is pushed down if the
+    # line above it is taller, and the card grows to fit (nothing overlaps or is cut off at any scaling).
+    try:
+        ui_scale = max(1.0, float(root.winfo_fpixels("1i")) / 96.0)  # 1.0 at 100 %, 1.5 at 150 % (never below 1)
+    except Exception:
+        ui_scale = 1.0
+    card_w = max(340, int(340 * ui_scale))
+    wrap_w = card_w - 20
+    f_card = bordered(setup_tab, lift=True, radius=16, width=card_w, height=330)
     f_card.grid_propagate(False)
     logo_img = tk.PhotoImage(data=APP_LOGO_B64)
+    if ui_scale > 1.05:  # the logo is a fixed-size picture: enlarge it with the text
+        try:
+            logo_img = logo_img.zoom(int(round(ui_scale * 4)), int(round(ui_scale * 4))).subsample(4, 4)
+        except Exception:
+            pass
     lb_logo = panel_label(f_card, lift=True, image=logo_img)
     lb_logo.image = logo_img
-    lb_logo.place(relx=0.5, y=18, anchor="n")
-    panel_label(f_card, lift=True, text=APP_NAME, font=(UI_FONT, 24, "bold")).place(relx=0.5, y=164, anchor="n")
-    panel_label(f_card, caption=True, lift=True, text=APP_ACRONYM, font=(UI_FONT, 10)).place(
-        relx=0.5, y=202, anchor="n")
-    panel_label(f_card, lift=True, text="Created by " + APP_AUTHOR, font=(UI_FONT, 12)).place(
-        relx=0.5, y=230, anchor="n")
-    panel_label(f_card, caption=True, lift=True, text="Version " + APP_VERSION, font=(UI_FONT, 11)).place(
-        relx=0.5, y=252, anchor="n")
-    panel_label(f_card, caption=True, lift=True, text=APP_CREDITS, font=(UI_FONT, 9), wraplength=320,
-                justify="center").place(relx=0.5, y=282, anchor="n")
+    logo_y = int(18 * ui_scale)
+    lb_logo.place(relx=0.5, y=logo_y, anchor="n")
+    card_lines = (  # (min y, label options)
+        (164, dict(lift=True, text=APP_NAME, font=(UI_FONT, 24, "bold"))),
+        (202, dict(caption=True, lift=True, text=APP_ACRONYM, font=(UI_FONT, 10))),
+        (230, dict(lift=True, text="Created by " + APP_AUTHOR, font=(UI_FONT, 12))),
+        (252, dict(caption=True, lift=True, text="Version " + APP_VERSION, font=(UI_FONT, 11))),
+        (282, dict(caption=True, lift=True, text=APP_CREDITS, font=(UI_FONT, 9), wraplength=wrap_w,
+                   justify="center")))
+    try:
+        logo_h = int(logo_img.height())
+    except Exception:
+        logo_h = int(140 * ui_scale)
+    next_y = logo_y + logo_h + 6
+    for min_y, opts in card_lines:
+        lb_ = panel_label(f_card, **opts)
+        y_ = max(min_y, next_y)
+        lb_.place(relx=0.5, y=y_, anchor="n")
+        try:
+            lb_.update_idletasks()
+            next_y = y_ + int(lb_.winfo_reqheight()) + 2
+        except Exception:
+            next_y = y_ + 24
+    card_h = max(330, next_y + 14)
+    f_card.reshape(card_w + 2, card_h + 2)
+    card_size = (card_w, card_h)
 
     def place_card(_e=None):
         """Put the card in the free space at the right of the tools, else under them; hide it if there is no room."""
-        for fr_, w_min, h_min in ((about_area, 340, 335), (about_below, 340, 335)):
+        for fr_, w_min, h_min in ((about_area, card_size[0], card_size[1] + 5), (about_below, card_size[0], card_size[1] + 5)):
             if fr_.winfo_width() >= w_min and fr_.winfo_height() >= h_min:
                 f_card.place(in_=fr_, relx=0.5, rely=0.42 if fr_ is about_area else 0.5, anchor="center")
-                f_card.lift()
+                tk.Misc.lift(f_card)  # (a canvas's own lift() would be 'raise an item')
                 return
         f_card.place_forget()
     about_area.bind("<Configure>", place_card)
@@ -6748,7 +7159,7 @@ def run_gui():
         fit_scroll_area()
 
     # --- window size: big enough for the content on any platform / DPI
-    def size_window():
+    def size_window(center=True):
         """Size the window at start: saved size, but never larger than the screen."""
         root.update_idletasks()
         req_w, req_h = main.winfo_reqwidth(), main.winfo_reqheight()
@@ -6763,7 +7174,22 @@ def run_gui():
             widget_.config(height=rows_)
             root.update_idletasks()
         req_w, req_h = main.winfo_reqwidth(), main.winfo_reqheight()
-        root.geometry(f"{min(max(w, req_w, 920), max_w)}x{min(max(h, req_h), max_h)}")
+        w_fin, h_fin = min(max(w, req_w, 920), max_w), min(max(h, req_h), max_h)
+        # open in the middle of the usable screen (not under the taskbar), not where the system drops it
+        sw_, sh_ = root.winfo_screenwidth(), root.winfo_screenheight()
+        l_, t_, r_, b_ = 0, (25 if IS_MAC else 0), sw_, sh_
+        if IS_WIN:
+            try:
+                import ctypes
+                from ctypes import wintypes
+                rc_ = wintypes.RECT()
+                if ctypes.windll.user32.SystemParametersInfoW(48, 0, ctypes.byref(rc_), 0):  # SPI_GETWORKAREA
+                    l_, t_, r_, b_ = rc_.left, rc_.top, rc_.right, rc_.bottom
+            except (OSError, AttributeError, ValueError):
+                pass
+        x_fin = l_ + max(0, (r_ - l_ - w_fin) // 2)
+        y_fin = t_ + max(0, (b_ - t_ - h_fin - 40) // 2)  # (40: the title bar)
+        root.geometry(f"{w_fin}x{h_fin}+{x_fin}+{y_fin}" if center else f"{w_fin}x{h_fin}")
         root.minsize(min(640, max_w), min(420, max_h))
         # Tk limits a window to the size of the main screen unless told otherwise; with a bigger
         # monitor attached the window must be allowed to grow beyond it
@@ -7689,7 +8115,9 @@ def run_gui():
                 else:
                     root.after(0, lambda: (status_var.set("Failed"),
                                            notify(APP_NAME, "The download failed"),
-                                           messagebox.showerror("yt-dlp error", err[-1500:])))
+                                           messagebox.showerror("yt-dlp error", (
+                                               short_error(err) + "\n\n" if "n challenge" in err.lower() else "")
+                                               + err[-1500:])))
         except OSError as ex:
             msg = str(ex)
             if indeterminate:
@@ -8767,6 +9195,7 @@ def run_gui():
         """Remember which browser's cookies yt-dlp uses for YouTube."""
         b = yt_browser_var.get()
         YT_ACCOUNT["browser"] = "" if untr(b) == "None" else b.lower()
+        YT_ACCOUNT["blocked"] = False  # a new choice: try the login again
 
     def yt_open_feed():
         """Open the YouTube home page / subscriptions with the browser's cookies."""
@@ -9069,7 +9498,7 @@ def run_gui():
             """Find out in the background why yt-dlp cannot play this item, then show the reason."""
             reason = ""
             try:
-                r_ = subprocess.run([ytdlp] + cookie_args() + ["--simulate", "--no-playlist", "--no-warnings", url],
+                r_ = subprocess.run([ytdlp] + yt_args() + ["--simulate", "--no-playlist", "--no-warnings", url],
                                     capture_output=True, timeout=40, env=tool_env(), **TEXT)
                 if r_.returncode != 0:
                     reason = short_error(r_.stderr or "", 130).replace("ERROR: ", "")
@@ -9207,10 +9636,14 @@ def run_gui():
                                  {"command": ["get_property", "duration"], "request_id": 2},
                                  {"command": ["get_property", "pause"], "request_id": 3},
                                  {"command": ["get_property", "eof-reached"], "request_id": 4},
-                                 {"command": ["get_property", "idle-active"], "request_id": 5}],
-                          wait_ids=[1, 2, 3, 4, 5], timeout=1.0)
+                                 {"command": ["get_property", "idle-active"], "request_id": 5},
+                                 {"command": ["get_property", "user-data/faun-cmd"], "request_id": 6}],
+                          wait_ids=[1, 2, 3, 4, 5, 6], timeout=1.0)
+            key_cmd = mpv_take_command(sock, res)
         except OSError:
-            res = None
+            res, key_cmd = None, ""
+        if key_cmd:
+            root.after(0, lambda c=key_cmd: player_key(c))
         root.after(0, lambda: browse_progress_apply(res))
 
     def browse_player_poll():
@@ -9281,17 +9714,14 @@ def run_gui():
                 mpv_ipc(br_player["sock"], [{"command": ["quit"]}])
             except OSError:
                 pass
-            try:
-                br_player["proc"].terminate()
-            except OSError:
-                pass
+            kill_proc(br_player["proc"])
             if not quiet:
                 br_status_var.set("Stopped.")
         br_player["proc"], br_player["paused"] = None, False
         browse_player_ui()
 
     import atexit
-    atexit.register(lambda: br_player["proc"].terminate() if browse_player_alive() else None)
+    atexit.register(lambda: kill_proc(br_player["proc"]) if browse_player_alive() else None)
 
     def browse_vis_changed():
         """Visualizer ticked / style changed: switch it on the running player at once."""
@@ -9313,33 +9743,66 @@ def run_gui():
                 root.after(0, lambda msg=str(ex): br_status_var.set(f"Could not reach the player: {msg}"))
         threading.Thread(target=work, daemon=True).start()
 
-    def browse_play_worker(kind, path, url, audio_only=False, vis_style=None):
+    def browse_watch_start(proc, log_path, args, retry):
+        """If the Browse player closes within a few seconds, say why (from mpv's log). When it was the browser
+        login that failed, switch the login off and start the same video again, once."""
+        try:
+            proc.wait(timeout=12)
+        except subprocess.TimeoutExpired:
+            return  # it plays
+        try:
+            with open(log_path, encoding="utf-8", errors="replace") as fh:
+                lines = fh.read().splitlines()[-60:]
+        except OSError:
+            return
+        bad = [ln for ln in lines if re.search(r"error|failed|could not|cannot|unable", ln, re.I)]
+        if not bad:
+            return  # closed by the person
+        was_blocked = bool(YT_ACCOUNT.get("blocked"))
+        msg = short_error("\n".join(bad), 150)
+        if YT_ACCOUNT.get("blocked") and not was_blocked and not retry:
+            root.after(0, lambda: br_status_var.set(msg + " Trying again without the login…"))
+            browse_play_worker(*args, retry=True)
+        else:
+            root.after(0, lambda: br_status_var.set("The player closed straight away: " + msg))
+
+    def browse_play_worker(kind, path, url, audio_only=False, vis_style=None, retry=False):
         """Background job: start mpv for the Browse tab (or load the next video into the open one)."""
         try:
             if kind == "mpv":  # mpv understands the page link (uses yt-dlp itself)
                 import tempfile
                 sock = (r"\\.\pipe\faun-mpv-%d" % os.getpid() if IS_WIN else
                         os.path.join(tempfile.gettempdir(), "faun-mpv-%d.sock" % os.getpid()))
-                cmd = [path, "--input-ipc-server=" + sock, "--keep-open=yes", "--idle=yes"]
-                if YT_ACCOUNT.get("browser"):  # mpv's own yt-dlp uses the same YouTube login
-                    cmd += ["--ytdl-raw-options=cookies-from-browser=" + YT_ACCOUNT["browser"]]
+                cmd = [path, "--input-ipc-server=" + sock, "--keep-open=always", "--idle=yes"] + [
+                    o for o in [mpv_keys_option(), mpv_skip_script_option()] if o]
+                raw_ = js_runtime_args(for_mpv=True)  # mpv's yt-dlp uses the same login and JavaScript runtime
+                if YT_ACCOUNT.get("browser") and not YT_ACCOUNT.get("blocked"):
+                    raw_.insert(0, "cookies-from-browser=" + YT_ACCOUNT["browser"])
+                if raw_:
+                    cmd += ["--ytdl-raw-options=" + ",".join(raw_)]
+                br_player["vis"] = bool(vis_style)
                 if vis_style:
                     cmd += ["--lavfi-complex=" + visualizer_graph(vis_style, ffmpeg_has_pseudocolor()),
                             "--force-window=yes"]
-                elif audio_only:
-                    cmd += ["--no-video"]
-                cmd += [url]
+                else:
+                    cmd += [VU_AF]  # the audio filter the VU meter reads its levels from
+                    if audio_only:
+                        cmd += ["--no-video"]
                 import tempfile as _tf
+                log_ = os.path.join(_tf.gettempdir(), "faun-mpv-browse-%d.log" % os.getpid())
+                cmd += ["--log-file=" + log_, url]
                 if vis_style:
                     golden_folder()
                 proc = subprocess.Popen(cmd, env=tool_env(), creationflags=NO_WINDOW,
                                         cwd=_tf.gettempdir())  # the visualizer reads its pictures from here
                 br_player.update(proc=proc, sock=sock, paused=False)
+                threading.Thread(target=browse_watch_start, daemon=True,
+                                 args=(proc, log_, (kind, path, url, audio_only, vis_style), retry)).start()
                 seek["dur"] = 0
                 root.after(0, lambda: (br_pause_btn.config(text="Pause"), browse_player_ui()))
             else:
                 ytdlp = find_tool("yt-dlp")
-                r = subprocess.run([ytdlp] + cookie_args() + ["-g", "-f", "b/best", "--no-playlist", url],
+                r = subprocess.run([ytdlp] + yt_args() + ["-g", "-f", "b/best", "--no-playlist", url],
                                    capture_output=True, timeout=60, env=tool_env(), **TEXT)
                 stream = (r.stdout or "").strip().splitlines()
                 if not stream:
@@ -9358,6 +9821,159 @@ def run_gui():
             verify(list(tool_status), False)  # quick local check, no network
 
     nb.bind("<<NotebookTabChanged>>", on_tab_changed)
+    # ---- keyboard (Option instead of Ctrl on a Mac): Ctrl+Space = play / pause, Ctrl+Left / Right = seek, Ctrl+Up / Down = volume,
+    #      Ctrl+Shift+Right / Left = next / previous item (also the media keys in the mpv window)
+    def loud_send(messages):
+        """Send commands to the loudness preview player in the background."""
+        sock_ = loud_prev.get("sock")
+        if sock_ and loud_alive():
+            threading.Thread(target=lambda: mpv_ipc(sock_, messages), daemon=True).start()
+
+    def active_player():
+        """Which player the keys control: the one of the open tab, else any that is running."""
+        order = {"Files": ["fm", "br", "tl"], "Browse": ["br", "fm", "tl"], "Trim": ["tl", "fm", "br"]}.get(
+            task(), ["fm", "br", "tl"])
+        alive = {"fm": fm_alive, "br": browse_player_alive, "tl": trim_alive, "lp": loud_alive}
+        order = order + ["lp"] if task() != "Loudness" else ["lp"] + order
+        return next((k for k in order if alive[k]()), None)
+
+    def player_key(action):
+        """Do one player action: pause, next, prev, back, forward, volup, voldown."""
+        who = active_player()
+        if not who:
+            return
+        if action == "pause" and who == "lp":
+            loud_send([{"command": ["cycle", "pause"]}])
+            return
+        if action == "pause":
+            {"fm": fm_pause, "br": browse_pause, "tl": trim_pause}[who]()
+            return
+        if action in ("next", "prev"):
+            delta = 1 if action == "next" else -1
+            if who == "fm":
+                fm_next(manual=True, delta=delta)
+            elif who == "br":
+                browse_play_next(manual=True, delta=delta)
+            return
+        sock = {"fm": lambda: fm_player["sock"], "br": lambda: br_player["sock"], "tl": lambda: tl["sock"],
+                "lp": lambda: loud_prev["sock"]}[who]()
+        if action == "mute":
+            def mute_work():
+                """Switch the sound of that player off / on and say which one it is now."""
+                try:
+                    res = mpv_ipc(sock, [{"command": ["cycle", "mute"]},
+                                         {"command": ["get_property", "mute"], "request_id": 1},
+                                         {"command": ["get_property", "seekable"], "request_id": 2}],
+                                  wait_ids=[1, 2], timeout=1.0)
+                    if isinstance(res, dict) and isinstance(res.get(1), bool) and res.get(2) is True:
+                        # the sound already queued for the speakers would play on (or stay silent) for a moment:
+                        # a seek to the very same spot empties that queue (and loses nothing)
+                        mpv_ipc(sock, [{"command": ["seek", 0, "relative+exact"]}])
+                except OSError:
+                    return
+                if isinstance(res, dict) and isinstance(res.get(1), bool):
+                    root.after(0, lambda: status_var.set("Muted" if res[1] else "Sound on"))
+            threading.Thread(target=mute_work, daemon=True).start()
+            return
+        if action in ("back", "forward"):
+            msgs = [{"command": ["seek", -5 if action == "back" else 5, "relative"]}]
+            show = None
+        else:
+            msgs = [{"command": ["add", "volume", 5 if action == "volup" else -5]},
+                    {"command": ["get_property", "volume"], "request_id": 1}]
+            show = status_var
+
+        def work():
+            """Send the key to mpv in the background; show the new volume."""
+            try:
+                res = mpv_ipc(sock, msgs, wait_ids=[1] if show else None, timeout=1.0)
+            except OSError:
+                return
+            vol = res.get(1) if isinstance(res, dict) else None
+            if show and isinstance(vol, (int, float)):
+                root.after(0, lambda: show.set(f"Volume {int(round(vol))} %"))
+        threading.Thread(target=work, daemon=True).start()
+
+    KEY_ACTIONS = {"Control-space": "pause", "Control-Left": "back", "Control-Right": "forward",
+                   "Control-Up": "volup", "Control-Down": "voldown",
+                   "Control-Shift-Right": "next", "Control-Shift-Left": "prev", "Control-m": "mute"}
+    TEXT_WIDGETS = ("Entry", "TEntry", "Text", "TCombobox", "Spinbox", "TSpinbox")
+
+    def on_player_key(event, action):
+        """A key was pressed: control the player, unless the user is typing or no player is running."""
+        w = event.widget
+        try:
+            if w.winfo_class() in TEXT_WIDGETS or w.winfo_toplevel() is not root:
+                return None
+        except tk.TclError:
+            return None
+        if not active_player():
+            return None
+        player_key(action)
+        return "break"
+
+    for key_, action_ in KEY_ACTIONS.items():
+        if IS_MAC:  # Ctrl + arrows belong to Mission Control on a Mac: Option is used there instead
+            key_ = key_.replace("Control", "Option")
+        keys_ = [key_]
+        if IS_MAC:  # Option + Space / M type a special character (non-breaking space, µ): Tk names those keys differently
+            for plain_, typed_ in (("space", "nobreakspace"), ("m", "mu")):
+                if key_.endswith("-" + plain_):
+                    keys_ += [key_[:-len(plain_)] + typed_]
+        for k_ in keys_:
+            try:
+                root.bind_class("FaunKeys", "<" + k_ + ">", lambda e, a=action_: on_player_key(e, a))
+            except tk.TclError:
+                pass
+
+    if IS_MAC:  # Option + M / Option + Space are not delivered on every keyboard layout (e.g. Czech): Ctrl + M and Ctrl + P work everywhere
+        for k_, a_ in (("Control-m", "mute"), ("Control-p", "pause")):
+            try:
+                root.bind_class("FaunKeys", "<" + k_ + ">", lambda e, a=a_: on_player_key(e, a))
+            except tk.TclError:
+                pass
+
+    if IS_MAC:  # Option + M types "µ": Tk may name that key in different ways, so look at the character itself
+        def mac_option_key(event):
+            """Option + M (the character µ, or the plain key m): mute. Any other Option key is left alone."""
+            if os.environ.get("FAUN_DEBUG_KEYS"):  # for finding out what a Mac sends: start the app from Terminal with this set
+                print("Option key:", event.keysym, repr(event.char), event.keycode, event.state, flush=True)
+            try:  # the physical key, whatever the keyboard layout types: Tk keeps the macOS key code in the top byte
+                kc_ = int(event.keycode)
+                code_ = (kc_ >> 24) if kc_ > 0xFFFFFF else (kc_ & 0xFFFF)
+            except (TypeError, ValueError):
+                code_ = -1
+            if code_ == 49:  # the space bar (a layout may type another character than the non-breaking space)
+                return on_player_key(event, "pause")
+            mac_m = code_ == 46  # the key M (macOS key code 46)
+            if event.char in ("\u00b5", "m", "M") or event.keysym in ("mu", "micro", "m", "M") or mac_m:
+                return on_player_key(event, "mute")
+            return None
+        try:
+            root.bind_class("FaunKeys", "<Option-Key>", mac_option_key)
+        except tk.TclError:
+            pass
+
+    if os.environ.get("FAUN_DEBUG_KEYS"):  # print every key press (to find out what a keyboard layout sends)
+        root.bind_class("FaunDebug", "<KeyPress>", lambda e: print(
+            "key:", e.keysym, repr(e.char), "code", e.keycode, "state", e.state, flush=True))
+
+    def keys_install(w=None):
+        """Put the key handler first in every widget's binding order (so Space does not also press a button)."""
+        w = w or root
+        try:
+            tags = w.bindtags()
+            if "FaunKeys" not in tags:
+                w.bindtags((("FaunDebug",) if os.environ.get("FAUN_DEBUG_KEYS") else ()) + ("FaunKeys",) + tuple(tags))
+            for child in w.winfo_children():
+                if child.winfo_class() != "Toplevel":
+                    keys_install(child)
+        except tk.TclError:
+            pass
+        if w is root:
+            root.after(3000, keys_install)  # catches widgets created later
+
+    keys_install()
     browse_player_poll()
     fm_player_poll()
 
@@ -9397,7 +10013,7 @@ def run_gui():
     restore_batch_items()
     apply_language()  # Czech on if it was on last time
     if LANG["cz"]:
-        size_window()  # the Czech texts are longer
+        size_window(center=False)  # the Czech texts are longer (the window stays where it is)
 
     # "Open with" / drag file onto the .py icon or .exe
     if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):

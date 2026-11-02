@@ -2,21 +2,13 @@
 
 <p align="center"><img src="docs/mascot.png" alt="FAUN mascot" width="360"></p>
 
-<p align="center">
-  <a href="https://ko-fi.com/t0mashajek">
-    <img src="https://img.shields.io/badge/Ko--fi-Support%20FAUN-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support FAUN on Ko-fi">
-  </a>
-</p>
-
-   <p align="center"><img src="docs/Screenshot.png" alt="FAUN screenshot" width="720"></p>
-
 **F**ind · **A**cquire · **U**nify · **N**ormalize
 
 A simple, clean desktop front-end for **ffmpeg**, **yt-dlp** and **mpv**. Works on macOS and Windows.
 Trim, convert, compress and tidy video and audio files, download from many sites, and play your files
 with a live VU meter, without typing a single command.
 
-Created by Tomas Hajek · Version 1.0
+Created by Tomas Hajek · Version 1.1
 
 > FAUN is an independent project. It is **not affiliated with or endorsed by** the FFmpeg, yt-dlp
 > or mpv projects. "FFmpeg" is a trademark of Fabrice Bellard.
