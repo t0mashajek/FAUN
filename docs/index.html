@@ -191,10 +191,13 @@ footer a{color:var(--muted)}
   <section id="start">
     <h2>Get started</h2>
     <p class="sub">Download, unzip, open. Install the helper tools from the Setup tab.</p>
+    <p style="margin-bottom:16px"><b>Which download?</b> Windows: <code>FAUN-windows.zip</code> (unzip, then run FAUN.exe). Mac with macOS 27 or later: <code>FAUN-mac.zip</code>. Mac with an older macOS: <code>FAUN-mac-legacy.zip</code> (it also runs on newer ones, with a slightly older look).</p>
     <div class="note">
       <h3>First start: your computer will warn you</h3>
       <p><b>Windows:</b> if SmartScreen appears, click “More info”, then “Run anyway”.</p>
-      <p><b>macOS:</b> right-click the app, choose “Open”, then “Open” again.</p>
+      <p><b>macOS 15 (Sequoia) and newer, including 26 and 27:</b> open the app once, then go to System Settings → Privacy &amp; Security, scroll down, click “Open Anyway” and confirm. It does not ask again.</p>
+      <p><b>macOS 14 (Sonoma) and older:</b> right-click the app, choose “Open”, then “Open” again.</p>
+      <p><b>macOS, Safari sign-in in Browse:</b> to use your YouTube account with Safari (“My YouTube – signed in with”), macOS requires Full Disk Access. Switch FAUN on under System Settings → Privacy &amp; Security → Full Disk Access (click + and add FAUN if it is not listed), then quit and reopen the app. Firefox does not need it. Chrome asks for access to your Keychain instead: allow it and sign-in works. Normal searching and playing work without any of this.</p>
       <p>FAUN is not signed with a paid certificate yet, so this is expected. The source code is public if you prefer to check it or run it yourself with Python.</p>
     </div>
     <p style="margin-top:16px">FAUN needs ffmpeg, yt-dlp and mpv. Open the <b>Setup</b> tab and it installs or updates them for you.</p>
