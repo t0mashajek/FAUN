@@ -55,7 +55,7 @@ Get the latest version from the [Releases page](https://github.com/t0mashajek/FA
 
 | Your computer | Download |
 |---|---|
-| Windows | `FAUN.exe` |
+| Windows | `FAUN-windows.zip` (unzip it, then run `FAUN.exe`) |
 | Mac with **macOS 27 or later** (main build) | `FAUN-mac.zip` |
 | Mac with an **older macOS** | `FAUN-mac-legacy.zip` (also runs on newer macOS, with a slightly older look) |
 
