@@ -49,9 +49,42 @@ Also:
 
 ---
 
+## Download
+
+Get the latest version from the [Releases page](https://github.com/t0mashajek/FAUN/releases/latest).
+
+| Your computer | Download |
+|---|---|
+| Windows | `FAUN.exe` |
+| Mac with **macOS 27 or later** (main build) | `FAUN-mac.zip` |
+| Mac with an **older macOS** | `FAUN-mac-legacy.zip` (also runs on newer macOS, with a slightly older look) |
+
+**First start.** The apps are not signed with a paid certificate, so your computer warns you once.
+
+- **Windows:** if SmartScreen appears, click *More info*, then *Run anyway*.
+- **macOS 15 (Sequoia) and newer, including 26 and 27:**
+  1. Open FAUN. macOS says it cannot verify the app.
+  2. Go to *System Settings → Privacy & Security*, scroll down and click **Open Anyway**.
+  3. Confirm (password or Touch ID). It does not ask again.
+- **macOS 14 (Sonoma) and older:** right-click (or Control-click) the app, choose **Open**, then **Open** again.
+- If macOS says the app is "damaged" (any version), run `xattr -cr /Applications/FAUN.app` in Terminal
+  (change the path if the app is elsewhere) and open it again.
+
+**Full Disk Access (macOS, only for Safari sign-in).** In the Browse tab, *My YouTube – signed in with*
+lets FAUN use your YouTube account (for example Recommended) by reading your browser's cookies. macOS only
+lets an app read Safari's cookies if it has Full Disk Access: *System Settings → Privacy & Security →
+Full Disk Access*, switch **FAUN** on (click **+** and add FAUN.app if it is not in the list), then quit and
+open FAUN again. If you run FAUN from source, give that permission to Terminal instead. Choosing Firefox there does not need it.
+Chrome asks for access to your Keychain instead (a password prompt, mentioning Chrome's stored password);
+allow it and sign-in works. Normal searching and playing in Browse work without any of this.
+
+Then open the **Setup** tab to install the helper programs.
+
+---
+
 ## Requirements
 
-- **Python 3.8 or newer** with tkinter (included with the python.org installers).
+- To run from source: **Python 3.8 or newer** with tkinter (included with the python.org installers). The downloads above need no Python.
 - **ffmpeg** (with ffprobe). **yt-dlp** is needed for the download and Browse tabs, **mpv** for playing files.
 - Optional: `tkinterdnd2` for drag and drop of files, **deno** (helps yt-dlp with YouTube).
 
@@ -66,29 +99,33 @@ python3 FAUN.py
 
 ## Build an app
 
-**macOS**
+**macOS.** Put `FAUN.py`, `FAUN.icns` and `build_mac.command` in one folder and run:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install pyinstaller tkinterdnd2
-rm -rf build dist
-pyinstaller --windowed --noconfirm --clean --name "FAUN" --icon FAUN.icns \
-  --collect-all tkinterdnd2 FAUN.py
-codesign --force --deep --sign - dist/FAUN.app
-open dist/FAUN.app
+cd ~/FAUN
+bash build_mac.command
 ```
 
-**Windows** (PowerShell)
+This builds `dist/FAUN-mac-legacy.zip` with the Python from [python.org](https://www.python.org/downloads/macos/)
+(3.12 or 3.13, universal2 installer). That app runs on older macOS versions too.
 
-```powershell
-python -m venv venv
-.\venv\Scripts\python -m pip install -q pyinstaller tkinterdnd2
-.\venv\Scripts\python -m PyInstaller --windowed --onefile --clean --noconfirm --name FAUN `
-  --icon FAUN.ico --add-data "FAUN.ico;." --collect-all tkinterdnd2 FAUN.py
+For the main build, give the script another Python, for example the Homebrew one:
+
+```bash
+cd ~/FAUN
+bash build_mac.command /opt/homebrew/bin/python3
 ```
 
-The result is `dist\FAUN.exe`.
+This builds `dist/FAUN-mac.zip`. That app only runs on the macOS version its Python was built for or newer
+(macOS 27 or later with Homebrew's Python 3.15), but it has the newer look.
+
+The script clears `dist` each time, so move the first zip somewhere safe before building the second one.
+At the end it prints the oldest macOS the app needs: a low number such as 10.13 or 11.0 is a legacy build,
+27 is the main build.
+
+**Windows.** Install Python from [python.org](https://www.python.org/downloads/windows/) (3.12 or 3.13, with
+*tcl/tk and IDLE* ticked), put `FAUN.py`, `FAUN.ico` and `build_windows.bat` in one folder and double-click
+`build_windows.bat` (or run it in a Command Prompt). The result is `dist\FAUN.exe`.
 
 ---
 
